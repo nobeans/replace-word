@@ -164,17 +164,17 @@ func (di dictItem) String() string {
 func generateDictForText(before string, after string) dict {
 	return dict{
 		items: []dictItem{
-			{before: largeCamelCase(before), after: largeCamelCase(after)},
-			{before: smallCamelCase(before), after: smallCamelCase(after)},
-			{before: largeSnakeCase(before), after: largeSnakeCase(after)},
-			{before: smallSnakeCase(before), after: smallSnakeCase(after)},
-			{before: allLargeCase(before), after: allLargeCase(after)},
-			{before: allSmallCase(before), after: allSmallCase(after)},
-			{before: noSign(allLargeCase(before)), after: noSign(allLargeCase(after))},
-			{before: noSign(allSmallCase(before)), after: noSign(allSmallCase(after))},
-			{before: largeSpaceSeparated(before), after: largeSpaceSeparated(after)},
-			{before: capitalize(smallSpaceSeparated(before)), after: capitalize(smallSpaceSeparated(after))},
-			{before: smallSpaceSeparated(before), after: smallSpaceSeparated(after)},
+			{before: upperCamelCase(before), after: upperCamelCase(after)},                                   // UpperCamelCase
+			{before: lowerCamelCase(before), after: lowerCamelCase(after)},                                   // lowerCamelCase
+			{before: screamingSnakeCase(before), after: screamingSnakeCase(after)},                           // SCREAMING_SNAKE_CASE
+			{before: snakeCase(before), after: snakeCase(after)},                                             // snake_case
+			{before: screamingKebabCase(before), after: screamingKebabCase(after)},                           // SCREAMING-KEBAB-CASE
+			{before: kebabCase(before), after: kebabCase(after)},                                             // kebab-case
+			{before: noSign(screamingKebabCase(before)), after: noSign(screamingKebabCase(after))},           // flatcase
+			{before: noSign(kebabCase(before)), after: noSign(kebabCase(after))},                             // UPPERCASE
+			{before: upperSpaceSeparated(before), after: upperSpaceSeparated(after)},                         // Upper Space Separated
+			{before: capitalize(lowerSpaceSeparated(before)), after: capitalize(lowerSpaceSeparated(after))}, // Lower space separated
+			{before: lowerSpaceSeparated(before), after: lowerSpaceSeparated(after)},                         // lower space separated
 		},
 	}
 }
@@ -182,19 +182,19 @@ func generateDictForText(before string, after string) dict {
 func generateDictForFileName(before string, after string) dict {
 	return dict{
 		items: []dictItem{
-			{before: largeCamelCase(before), after: largeCamelCase(after)},
-			{before: smallCamelCase(before), after: smallCamelCase(after)},
-			{before: largeSnakeCase(before), after: largeSnakeCase(after)},
-			{before: smallSnakeCase(before), after: smallSnakeCase(after)},
-			{before: allLargeCase(before), after: allLargeCase(after)},
-			{before: allSmallCase(before), after: allSmallCase(after)},
-			{before: noSign(allLargeCase(before)), after: noSign(allLargeCase(after))},
-			{before: noSign(allSmallCase(before)), after: noSign(allSmallCase(after))},
+			{before: upperCamelCase(before), after: upperCamelCase(after)},                         // UpperCamelCase
+			{before: lowerCamelCase(before), after: lowerCamelCase(after)},                         // lowerCamelCase
+			{before: screamingSnakeCase(before), after: screamingSnakeCase(after)},                 // SCREAMING_SNAKE_CASE
+			{before: snakeCase(before), after: snakeCase(after)},                                   // snake_case
+			{before: screamingKebabCase(before), after: screamingKebabCase(after)},                 // SCREAMING-KEBAB-CASE
+			{before: kebabCase(before), after: kebabCase(after)},                                   // kebab-case
+			{before: noSign(screamingKebabCase(before)), after: noSign(screamingKebabCase(after))}, // flatcase
+			{before: noSign(kebabCase(before)), after: noSign(kebabCase(after))},                   // UPPERCASE
 		},
 	}
 }
 
-func largeCamelCase(str string) string {
+func upperCamelCase(str string) string {
 	var words []string
 	for _, w := range strings.Split(str, "-") {
 		words = append(words, capitalize(w))
@@ -202,23 +202,23 @@ func largeCamelCase(str string) string {
 	return strings.Join(words, "")
 }
 
-func smallCamelCase(str string) string {
-	return decapitalize(largeCamelCase(str))
+func lowerCamelCase(str string) string {
+	return decapitalize(upperCamelCase(str))
 }
 
-func largeSnakeCase(str string) string {
+func screamingSnakeCase(str string) string {
 	return strings.ToUpper(regexp.MustCompile(`-`).ReplaceAllString(str, "_"))
 }
 
-func smallSnakeCase(str string) string {
+func snakeCase(str string) string {
 	return strings.ToLower(regexp.MustCompile(`-`).ReplaceAllString(str, "_"))
 }
 
-func allLargeCase(str string) string {
+func screamingKebabCase(str string) string {
 	return strings.ToUpper(str)
 }
 
-func allSmallCase(str string) string {
+func kebabCase(str string) string {
 	return strings.ToLower(str)
 }
 
@@ -226,7 +226,7 @@ func noSign(str string) string {
 	return regexp.MustCompile(`[_-]`).ReplaceAllString(str, "")
 }
 
-func largeSpaceSeparated(str string) string {
+func upperSpaceSeparated(str string) string {
 	var words []string
 	for _, w := range strings.Split(str, "-") {
 		words = append(words, capitalize(w))
@@ -234,7 +234,7 @@ func largeSpaceSeparated(str string) string {
 	return strings.Join(words, " ")
 }
 
-func smallSpaceSeparated(str string) string {
+func lowerSpaceSeparated(str string) string {
 	return regexp.MustCompile(`[_-]`).ReplaceAllString(str, " ")
 }
 
