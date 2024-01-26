@@ -97,7 +97,7 @@ loop:
 	for _, file := range files {
 		path := filepath.Join(dir, file.Name())
 
-		if file.IsDir() {
+		if isDir(file, path) {
 			// Ignore specified dirs
 			for _, ignore := range []string{".idea", ".git", "node_modules", "build", "public"} {
 				if file.Name() == ignore {
@@ -127,6 +127,29 @@ loop:
 	}
 	sort.Strings(paths)
 	return paths, nil
+}
+
+func isDir(file os.DirEntry, path string) bool {
+	fileInfo, err := file.Info()
+	if err != nil {
+		return false
+	}
+
+	if fileInfo.Mode()&os.ModeSymlink != 0 {
+		linkPath, err := os.Readlink(path)
+		if err != nil {
+			return false
+		}
+
+		targetInfo, err := os.Stat(linkPath)
+		if err != nil {
+			return false
+		}
+
+		return targetInfo.IsDir()
+	}
+
+	return file.IsDir()
 }
 
 type dict struct {
