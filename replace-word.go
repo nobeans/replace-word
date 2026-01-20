@@ -97,6 +97,15 @@ loop:
 	for _, file := range files {
 		path := filepath.Join(dir, file.Name())
 
+		// Ignore symbolic links
+		fileInfo, err := file.Info()
+		if err != nil {
+			continue
+		}
+		if fileInfo.Mode()&os.ModeSymlink != 0 {
+			continue
+		}
+
 		if isDir(file, path) {
 			// Ignore specified dirs
 			for _, ignore := range []string{".idea", ".git", "node_modules", "build", "public"} {
@@ -130,25 +139,6 @@ loop:
 }
 
 func isDir(file os.DirEntry, path string) bool {
-	fileInfo, err := file.Info()
-	if err != nil {
-		return false
-	}
-
-	if fileInfo.Mode()&os.ModeSymlink != 0 {
-		linkPath, err := os.Readlink(path)
-		if err != nil {
-			return false
-		}
-
-		targetInfo, err := os.Stat(linkPath)
-		if err != nil {
-			return false
-		}
-
-		return targetInfo.IsDir()
-	}
-
 	return file.IsDir()
 }
 
