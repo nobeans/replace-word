@@ -19,15 +19,26 @@ import (
 	"github.com/hexops/gotextdiff/span"
 )
 
+type excludePatterns []string
+
+func (e *excludePatterns) String() string {
+	return strings.Join(*e, ",")
+}
+
+func (e *excludePatterns) Set(value string) error {
+	*e = append(*e, value)
+	return nil
+}
+
 func main() {
-	targetDir, before, after, dryRun, yes, err := parseArgs()
+	targetDir, before, after, dryRun, yes, excludes, err := parseArgs()
 	if err != nil {
 		printError(err.Error())
 		flag.Usage()
 		os.Exit(1)
 	}
 
-	paths, err := findTargetFiles(targetDir)
+	paths, err := findTargetFiles(targetDir, excludes)
 	if err != nil {
 		printError(err.Error())
 		os.Exit(1)
@@ -70,10 +81,12 @@ func main() {
 	}
 }
 
-func parseArgs() (string, string, string, bool, bool, error) {
+func parseArgs() (string, string, string, bool, bool, excludePatterns, error) {
 	dir := flag.String("dir", ".", "Target directory")
 	dryRun := flag.Bool("dry-run", false, "Enable dry run")
 	yes := flag.Bool("yes", false, "Skip confirmation prompt")
+	var excludes excludePatterns
+	flag.Var(&excludes, "exclude", "Exclude file pattern (glob, can be specified multiple times)")
 	flag.Usage = func() {
 		o := flag.CommandLine.Output()
 		_, name := filepath.Split(flag.CommandLine.Name())
@@ -82,12 +95,12 @@ func parseArgs() (string, string, string, bool, bool, error) {
 	}
 	flag.Parse()
 	if flag.NArg() != 2 {
-		return "", "", "", false, false, errors.New("required two arguments")
+		return "", "", "", false, false, nil, errors.New("required two arguments")
 	}
-	return *dir, flag.Arg(0), flag.Arg(1), *dryRun, *yes, nil
+	return *dir, flag.Arg(0), flag.Arg(1), *dryRun, *yes, excludes, nil
 }
 
-func findTargetFiles(dir string) ([]string, error) {
+func findTargetFiles(dir string, excludes excludePatterns) ([]string, error) {
 	files, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, err
@@ -107,6 +120,11 @@ loop:
 			continue
 		}
 
+		// Check exclude patterns
+		if matchesExclude(path, excludes) {
+			continue
+		}
+
 		if isDir(file, path) {
 			// Ignore specified dirs
 			for _, ignore := range []string{".idea", ".git", "node_modules", "build", "public"} {
@@ -115,7 +133,7 @@ loop:
 				}
 			}
 
-			foundInChild, err := findTargetFiles(path)
+			foundInChild, err := findTargetFiles(path, excludes)
 			if err != nil {
 				return nil, err
 			}
@@ -137,6 +155,22 @@ loop:
 	}
 	sort.Strings(paths)
 	return paths, nil
+}
+
+func matchesExclude(path string, excludes excludePatterns) bool {
+	for _, pattern := range excludes {
+		// Match against basename
+		matched, err := filepath.Match(pattern, filepath.Base(path))
+		if err == nil && matched {
+			return true
+		}
+		// Match against full path
+		matched, err = filepath.Match(pattern, path)
+		if err == nil && matched {
+			return true
+		}
+	}
+	return false
 }
 
 func isDir(file os.DirEntry, path string) bool {
