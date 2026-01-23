@@ -30,25 +30,50 @@ func (e *excludePatterns) Set(value string) error {
 	return nil
 }
 
+type targetDirs []string
+
+func (t *targetDirs) String() string {
+	if len(*t) == 0 {
+		return "."
+	}
+	return strings.Join(*t, ",")
+}
+
+func (t *targetDirs) Set(value string) error {
+	*t = append(*t, value)
+	return nil
+}
+
 func main() {
-	targetDir, before, after, dryRun, yes, excludes, err := parseArgs()
+	targetDirs, before, after, dryRun, yes, excludes, err := parseArgs()
 	if err != nil {
 		printError(err.Error())
 		flag.Usage()
 		os.Exit(1)
 	}
 
-	paths, err := findTargetFiles(targetDir, excludes)
-	if err != nil {
-		printError(err.Error())
-		os.Exit(1)
+	// Collect all paths from all target directories
+	type dirPaths struct {
+		dir   string
+		paths []string
 	}
-	if len(paths) == 0 {
+	var allDirPaths []dirPaths
+	var allPaths []string
+	for _, dir := range targetDirs {
+		found, err := findTargetFiles(dir, excludes)
+		if err != nil {
+			printError(err.Error())
+			os.Exit(1)
+		}
+		allDirPaths = append(allDirPaths, dirPaths{dir: dir, paths: found})
+		allPaths = append(allPaths, found...)
+	}
+	if len(allPaths) == 0 {
 		printError("no target files")
 		os.Exit(1)
 	}
 	fmt.Println(colorize(color.FgCyan, ">> Target files"))
-	fmt.Println(strings.Join(paths, "\n"))
+	fmt.Println(strings.Join(allPaths, "\n"))
 
 	textDict := generateDictForText(before, after)
 	fmt.Println(colorize(color.FgCyan, ">> Dictionary for text replacement"))
@@ -69,20 +94,23 @@ func main() {
 	}
 
 	fmt.Println(colorize(color.FgCyan, ">> Replacing text..."))
-	if err := replaceText(paths, textDict, dryRun); err != nil {
+	if err := replaceText(allPaths, textDict, dryRun); err != nil {
 		printError(err.Error())
 		os.Exit(1)
 	}
 
 	fmt.Println(colorize(color.FgCyan, ">> Renaming files and dirs..."))
-	if err := renameFilesAndDirs(targetDir, paths, fileNameDict, dryRun); err != nil {
-		printError(err.Error())
-		os.Exit(1)
+	for _, dp := range allDirPaths {
+		if err := renameFilesAndDirs(dp.dir, dp.paths, fileNameDict, dryRun); err != nil {
+			printError(err.Error())
+			os.Exit(1)
+		}
 	}
 }
 
-func parseArgs() (string, string, string, bool, bool, excludePatterns, error) {
-	dir := flag.String("dir", ".", "Target directory")
+func parseArgs() (targetDirs, string, string, bool, bool, excludePatterns, error) {
+	var dirs targetDirs
+	flag.Var(&dirs, "dir", "Target directory (can be specified multiple times, default: .)")
 	dryRun := flag.Bool("dry-run", false, "Enable dry run")
 	yes := flag.Bool("yes", false, "Skip confirmation prompt")
 	var excludes excludePatterns
@@ -95,9 +123,12 @@ func parseArgs() (string, string, string, bool, bool, excludePatterns, error) {
 	}
 	flag.Parse()
 	if flag.NArg() != 2 {
-		return "", "", "", false, false, nil, errors.New("required two arguments")
+		return nil, "", "", false, false, nil, errors.New("required two arguments")
 	}
-	return *dir, flag.Arg(0), flag.Arg(1), *dryRun, *yes, excludes, nil
+	if len(dirs) == 0 {
+		dirs = targetDirs{"."}
+	}
+	return dirs, flag.Arg(0), flag.Arg(1), *dryRun, *yes, excludes, nil
 }
 
 func findTargetFiles(dir string, excludes excludePatterns) ([]string, error) {
