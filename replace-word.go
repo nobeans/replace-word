@@ -20,7 +20,7 @@ import (
 )
 
 func main() {
-	targetDir, before, after, dryRun, err := parseArgs()
+	targetDir, before, after, dryRun, yes, err := parseArgs()
 	if err != nil {
 		printError(err.Error())
 		flag.Usage()
@@ -49,7 +49,7 @@ func main() {
 
 	if dryRun {
 		fmt.Println(colorize(color.FgYellow, "Dry running..."))
-	} else {
+	} else if !yes {
 		fmt.Print(colorize(color.FgYellow, "Do you replace words, sure? [y/N]: "))
 		if strings.ToLower(readInput()) != "y" {
 			fmt.Println("Cancelled.")
@@ -70,9 +70,10 @@ func main() {
 	}
 }
 
-func parseArgs() (string, string, string, bool, error) {
+func parseArgs() (string, string, string, bool, bool, error) {
 	dir := flag.String("dir", ".", "Target directory")
 	dryRun := flag.Bool("dry-run", false, "Enable dry run")
+	yes := flag.Bool("yes", false, "Skip confirmation prompt")
 	flag.Usage = func() {
 		o := flag.CommandLine.Output()
 		_, name := filepath.Split(flag.CommandLine.Name())
@@ -81,9 +82,9 @@ func parseArgs() (string, string, string, bool, error) {
 	}
 	flag.Parse()
 	if flag.NArg() != 2 {
-		return "", "", "", false, errors.New("required two arguments")
+		return "", "", "", false, false, errors.New("required two arguments")
 	}
-	return *dir, flag.Arg(0), flag.Arg(1), *dryRun, nil
+	return *dir, flag.Arg(0), flag.Arg(1), *dryRun, *yes, nil
 }
 
 func findTargetFiles(dir string) ([]string, error) {
