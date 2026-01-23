@@ -40,7 +40,29 @@ func (t *targetDirs) String() string {
 }
 
 func (t *targetDirs) Set(value string) error {
-	*t = append(*t, value)
+	// Expand glob pattern
+	matches, err := filepath.Glob(value)
+	if err != nil {
+		return err
+	}
+
+	// If no matches, treat as literal path
+	if len(matches) == 0 {
+		*t = append(*t, value)
+		return nil
+	}
+
+	// Filter only directories
+	for _, match := range matches {
+		info, err := os.Stat(match)
+		if err != nil {
+			continue
+		}
+		if info.IsDir() {
+			*t = append(*t, match)
+		}
+	}
+
 	return nil
 }
 
