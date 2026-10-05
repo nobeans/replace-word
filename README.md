@@ -3,6 +3,12 @@ Replace Word
 
 Replaces words of text and file names.
 
+The words are given as hyphenated words (e.g. `user-name`), and are replaced in each naming style:
+`UserName`, `userName`, `USER_NAME`, `user_name`, `USER-NAME`, `user-name`, `USERNAME`, `username`, `User Name`, `User name` and `user name`.
+
+Files ignored by Git (`.gitignore`, `.git/info/exclude` and `core.excludesFile`) are excluded by default.
+The `.git` directory, symbolic links and binary files are always excluded.
+
 
 ## Installation
 
@@ -17,8 +23,20 @@ $ go install github.com/nobeans/replace-word@latest
 Usage: replace-word <hyphenated-before-words> <hyphenated-after-words>
 
 Options:
-  -dir string
-        Target directory (default ".")
+  -dir value
+        Target directory (can be specified multiple times, default: .)
   -dry-run
         Enable dry run
+  -exclude value
+        Exclude file pattern (glob, can be specified multiple times)
+  -include-gitignored
+        Include files ignored by Git (.gitignore, .git/info/exclude and core.excludesFile), which are excluded by default
+  -yes
+        Skip confirmation prompt
+```
+
+For example, the following command shows what will be replaced without changing anything:
+
+```sh
+$ replace-word -dry-run user-name account-id
 ```
