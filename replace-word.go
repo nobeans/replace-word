@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -67,11 +68,26 @@ func (t *targetDirs) Set(value string) error {
 }
 
 func main() {
-	targetDirs, before, after, dryRun, yes, excludes, err := parseArgs()
+	targetDirs, before, after, dryRun, yes, excludes, includeGitignored, err := parseArgs()
 	if err != nil {
 		printError(err.Error())
 		flag.Usage()
 		os.Exit(1)
+	}
+
+	// Collect paths ignored by Git in all target directories before replacing anything.
+	ignored := map[string]bool{}
+	if !includeGitignored {
+		for _, dir := range targetDirs {
+			checked, err := collectGitIgnoredPaths(dir, ignored)
+			if err != nil {
+				printError(err.Error())
+				os.Exit(1)
+			}
+			if !checked {
+				printNote("%s is not inside a Git repository or git command is not found, no files are excluded by Git", dir)
+			}
+		}
 	}
 
 	// Collect all paths from all target directories
@@ -82,7 +98,7 @@ func main() {
 	var allDirPaths []dirPaths
 	var allPaths []string
 	for _, dir := range targetDirs {
-		found, err := findTargetFiles(dir, excludes)
+		found, err := findTargetFiles(dir, excludes, ignored)
 		if err != nil {
 			printError(err.Error())
 			os.Exit(1)
@@ -130,13 +146,14 @@ func main() {
 	}
 }
 
-func parseArgs() (targetDirs, string, string, bool, bool, excludePatterns, error) {
+func parseArgs() (targetDirs, string, string, bool, bool, excludePatterns, bool, error) {
 	var dirs targetDirs
 	flag.Var(&dirs, "dir", "Target directory (can be specified multiple times, default: .)")
 	dryRun := flag.Bool("dry-run", false, "Enable dry run")
 	yes := flag.Bool("yes", false, "Skip confirmation prompt")
 	var excludes excludePatterns
 	flag.Var(&excludes, "exclude", "Exclude file pattern (glob, can be specified multiple times)")
+	includeGitignored := flag.Bool("include-gitignored", false, "Include files ignored by Git (.gitignore, .git/info/exclude and core.excludesFile), which are excluded by default")
 	flag.Usage = func() {
 		o := flag.CommandLine.Output()
 		_, name := filepath.Split(flag.CommandLine.Name())
@@ -145,22 +162,49 @@ func parseArgs() (targetDirs, string, string, bool, bool, excludePatterns, error
 	}
 	flag.Parse()
 	if flag.NArg() != 2 {
-		return nil, "", "", false, false, nil, errors.New("required two arguments")
+		return nil, "", "", false, false, nil, false, errors.New("required two arguments")
 	}
 	if len(dirs) == 0 {
 		dirs = targetDirs{"."}
 	}
-	return dirs, flag.Arg(0), flag.Arg(1), *dryRun, *yes, excludes, nil
+	return dirs, flag.Arg(0), flag.Arg(1), *dryRun, *yes, excludes, *includeGitignored, nil
 }
 
-func findTargetFiles(dir string, excludes excludePatterns) ([]string, error) {
+// collectGitIgnoredPaths adds the paths ignored by Git under dir to ignored.
+// Git decides them with all of its rules (.gitignore in the directory and its ancestors and descendants,
+// .git/info/exclude and core.excludesFile), so they are the same as what Git ignores.
+// Tracked files are not included even if they match .gitignore.
+// It returns false if git command is not found or dir is not inside a Git repository.
+func collectGitIgnoredPaths(dir string, ignored map[string]bool) (bool, error) {
+	if _, err := exec.LookPath("git"); err != nil {
+		return false, nil
+	}
+	if err := exec.Command("git", "-C", dir, "rev-parse", "--is-inside-work-tree").Run(); err != nil {
+		return false, nil
+	}
+	// --directory lists an ignored directory itself instead of the files in it,
+	// so that it can be skipped without walking into it.
+	out, err := exec.Command("git", "-C", dir, "ls-files", "--others", "--ignored", "--exclude-standard", "--directory", "-z").Output()
+	if err != nil {
+		return false, fmt.Errorf("failed to list files ignored by Git in %s: %v", dir, err)
+	}
+	for _, path := range strings.Split(string(out), "\x00") {
+		if path == "" {
+			continue
+		}
+		// Paths are relative to dir. Directories end with "/".
+		ignored[filepath.Join(dir, path)] = true
+	}
+	return true, nil
+}
+
+func findTargetFiles(dir string, excludes excludePatterns, ignored map[string]bool) ([]string, error) {
 	files, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, err
 	}
 
 	var paths []string
-loop:
 	for _, file := range files {
 		path := filepath.Join(dir, file.Name())
 
@@ -178,15 +222,18 @@ loop:
 			continue
 		}
 
+		// Check paths ignored by Git
+		if ignored[path] {
+			continue
+		}
+
 		if isDir(file, path) {
-			// Ignore specified dirs
-			for _, ignore := range []string{".idea", ".git", "node_modules", "build", "public"} {
-				if file.Name() == ignore {
-					continue loop
-				}
+			// Ignore Git's own directory
+			if file.Name() == ".git" {
+				continue
 			}
 
-			foundInChild, err := findTargetFiles(path, excludes)
+			foundInChild, err := findTargetFiles(path, excludes, ignored)
 			if err != nil {
 				return nil, err
 			}
@@ -456,6 +503,10 @@ func expandAncestorDirs(baseDir string, path string) []string {
 
 func printError(format string, args ...interface{}) {
 	_, _ = fmt.Fprintln(os.Stderr, colorize(color.FgRed, "ERROR: "+format, args...))
+}
+
+func printNote(format string, args ...interface{}) {
+	_, _ = fmt.Fprintln(os.Stderr, colorize(color.FgYellow, "NOTE: "+format, args...))
 }
 
 func colorize(attr color.Attribute, format string, args ...interface{}) string {
