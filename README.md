@@ -31,6 +31,9 @@ Options:
         Exclude file pattern (glob, can be specified multiple times)
   -include-gitignored
         Include files ignored by Git (.gitignore, .git/info/exclude and core.excludesFile), which are excluded by default
+  -v    Show version
+  -version
+        Show version
   -yes
         Skip confirmation prompt
 ```

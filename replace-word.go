@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime/debug"
 	"sort"
 	"strings"
 	"unicode"
@@ -155,6 +156,9 @@ func parseArgs() (targetDirs, string, string, bool, bool, excludePatterns, bool,
 	var excludes excludePatterns
 	flag.Var(&excludes, "exclude", "Exclude file pattern (glob, can be specified multiple times)")
 	includeGitignored := flag.Bool("include-gitignored", false, "Include files ignored by Git (.gitignore, .git/info/exclude and core.excludesFile), which are excluded by default")
+	var showVersion bool
+	flag.BoolVar(&showVersion, "v", false, "Show version")
+	flag.BoolVar(&showVersion, "version", false, "Show version")
 	flag.Usage = func() {
 		o := flag.CommandLine.Output()
 		_, name := filepath.Split(flag.CommandLine.Name())
@@ -162,6 +166,10 @@ func parseArgs() (targetDirs, string, string, bool, bool, excludePatterns, bool,
 		flag.PrintDefaults()
 	}
 	flag.Parse()
+	if showVersion {
+		fmt.Println(filepath.Base(os.Args[0]), version())
+		os.Exit(0)
+	}
 	if flag.NArg() != 2 {
 		return nil, "", "", false, false, nil, false, errors.New("required two arguments")
 	}
@@ -169,6 +177,16 @@ func parseArgs() (targetDirs, string, string, bool, bool, excludePatterns, bool,
 		dirs = targetDirs{"."}
 	}
 	return dirs, flag.Arg(0), flag.Arg(1), *dryRun, *yes, excludes, *includeGitignored, nil
+}
+
+// version returns the version embedded by Go at build time.
+// go install with a version (e.g. @latest) embeds the tag of the module, so no hard-coded version is needed.
+func version() string {
+	info, ok := debug.ReadBuildInfo()
+	if !ok || info.Main.Version == "" {
+		return "unknown"
+	}
+	return info.Main.Version
 }
 
 // collectGitIgnoredPaths adds the paths ignored by Git under dir to ignored.
