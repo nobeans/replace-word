@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/fatih/color"
 	"github.com/hexops/gotextdiff"
@@ -387,17 +388,19 @@ func lowerSpaceSeparated(str string) string {
 }
 
 func capitalize(str string) string {
-	for i, v := range str {
-		return string(unicode.ToUpper(v)) + str[i+1:]
+	r, size := utf8.DecodeRuneInString(str)
+	if size == 0 {
+		return ""
 	}
-	return ""
+	return string(unicode.ToUpper(r)) + str[size:]
 }
 
 func decapitalize(str string) string {
-	for i, v := range str {
-		return string(unicode.ToLower(v)) + str[i+1:]
+	r, size := utf8.DecodeRuneInString(str)
+	if size == 0 {
+		return ""
 	}
-	return ""
+	return string(unicode.ToLower(r)) + str[size:]
 }
 
 func readInput() string {
