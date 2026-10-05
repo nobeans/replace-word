@@ -3,7 +3,7 @@ all: clean replace-word
 
 replace-word: replace-word.go
 	@echo ">> Compiling..."
-	go build $<
+	go build -o $@ .
 
 .PHONY: clean
 clean:
