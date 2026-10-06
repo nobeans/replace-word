@@ -29,6 +29,8 @@ Options:
         Enable dry run
   -exclude value
         Exclude file pattern (glob, can be specified multiple times)
+  -exclude-from value
+        Read exclude file patterns from a file (one glob per line; blank lines and lines starting with # are ignored)
   -include-gitignored
         Include files ignored by Git (.gitignore, .git/info/exclude and core.excludesFile), which are excluded by default
   -v    Show version

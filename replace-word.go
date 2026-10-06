@@ -155,6 +155,14 @@ func parseArgs() (targetDirs, string, string, bool, bool, excludePatterns, bool,
 	yes := flag.Bool("yes", false, "Skip confirmation prompt")
 	var excludes excludePatterns
 	flag.Var(&excludes, "exclude", "Exclude file pattern (glob, can be specified multiple times)")
+	flag.Func("exclude-from", "Read exclude file patterns from a file (one glob per line; blank lines and lines starting with # are ignored)", func(path string) error {
+		patterns, err := readExcludeFile(path)
+		if err != nil {
+			return err
+		}
+		excludes = append(excludes, patterns...)
+		return nil
+	})
 	includeGitignored := flag.Bool("include-gitignored", false, "Include files ignored by Git (.gitignore, .git/info/exclude and core.excludesFile), which are excluded by default")
 	var showVersion bool
 	flag.BoolVar(&showVersion, "v", false, "Show version")
@@ -177,6 +185,24 @@ func parseArgs() (targetDirs, string, string, bool, bool, excludePatterns, bool,
 		dirs = targetDirs{"."}
 	}
 	return dirs, flag.Arg(0), flag.Arg(1), *dryRun, *yes, excludes, *includeGitignored, nil
+}
+
+// readExcludeFile reads exclude file patterns from path, one glob per line.
+// Blank lines and lines starting with # are ignored, so that the file can have comments.
+func readExcludeFile(path string) ([]string, error) {
+	bs, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var patterns []string
+	for _, line := range strings.Split(string(bs), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		patterns = append(patterns, line)
+	}
+	return patterns, nil
 }
 
 // version returns the version embedded by Go at build time.
