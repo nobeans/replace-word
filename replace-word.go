@@ -205,9 +205,15 @@ func readExcludeFile(path string) ([]string, error) {
 	return patterns, nil
 }
 
-// version returns the version embedded by Go at build time.
+// buildVersion is set by GoReleaser with -ldflags "-X main.buildVersion=<tag>" for the released binaries.
+var buildVersion string
+
+// version returns the version embedded at build time.
 // go install with a version (e.g. @latest) embeds the tag of the module, so no hard-coded version is needed.
 func version() string {
+	if buildVersion != "" {
+		return buildVersion
+	}
 	info, ok := debug.ReadBuildInfo()
 	if !ok || info.Main.Version == "" {
 		return "unknown"

@@ -12,6 +12,16 @@ The `.git` directory, symbolic links and binary files are always excluded.
 
 ## Installation
 
+With [mise](https://mise.jdx.dev/) (no Go required; prebuilt binaries are downloaded from GitHub Releases):
+
+```sh
+$ mise use -g github:nobeans/replace-word
+```
+
+Or download an archive for your platform from [GitHub Releases](https://github.com/nobeans/replace-word/releases).
+
+With Go:
+
 ```sh
 $ go install github.com/nobeans/replace-word@latest
 ```
